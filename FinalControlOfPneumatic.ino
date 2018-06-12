@@ -34,29 +34,22 @@ char auth[] = "2dad3047c43147f4a1e8463baf84184c"; //for wireless connection to H
     float pot3=100;        //initiliation of potentiometer 3 out of 100         
     float pot4=100;        //initiliation of potentiometer 4 out of 100    
     
-    float p1OffSet=0;
-    float p2OffSet=0;
-    float p3OffSet=0;
-    float p4OffSet=0;
+    float p1OffSet=0;       //pressure offset of channel 1
+    float p2OffSet=0;       //pressure offset of channel 2
+    float p3OffSet=0;       //pressure offset of channel 3
+    float p4OffSet=0;       //pressure offset of channel 4
 
-    float p1;
-    float p2;
-    float p3;
-    float p4;
+    float p1;               //pressure sensor readings from channel 1
+    float p2;               //pressure sensor readings from channel 2
+    float p3;               //pressure sensor readings from channel 3
+    float p4;               //pressure sensor readings from channel 4
     
-    int N=255; //N=2/0.25;
-    float DL = 2/N;
+    int N=255;              //PWM period divided into 255 segments
+    float DL = 2/N;         //Delay for a sampling frequency of ~125kHz
 
-    int bluetooth=0;  //switch to initiate bluetooth
-    int bluetoothSetup=0; //
-    int PID=0;  //Switch to initiate PID control
-
-int SwitchState1 = HIGH;      //Variable for current LED state
-int buttonState;          //Variable for current button reading
-int lastButtonState = LOW;//Variable for last know button reading
-
-unsigned long lastDebounceTime = 0; //last time the pin was toggled, used to keep track of time
-unsigned long debounceDelay = 50;   //the debounce time which user sets prior to run
+    int bluetooth=0;        //switch to initiate wireless control
+    int bluetoothSetup=0;   
+    int PID=0;              //Switch to initiate PID control
 
 //PID constants
 //////////////////////////////////////////////////////////
@@ -84,19 +77,19 @@ float PID_error1 = 0, PID_error2 = 0, PID_error3 = 0, PID_error4 = 0;
 float previous_error1 = 0,previous_error2 = 0,previous_error3 = 0,previous_error4 = 0 ;
 float elapsedTime, Time, timePrev;
 
+//This code is run only once at the start
   void setup() {
 //LCD Setup  
   Wire.begin();
   Wire.beginTransmission(0x27);
   lcd.begin(16, 2); // initialize the lcd
 
-
-//switches
+//switches setup
   pinMode(7, INPUT);  //bluetooth switch
   pinMode(8, INPUT);  //PID switch
   
 // SET UP PWMs through timer interrupts
-pinMode(50, INPUT);
+  pinMode(50, INPUT);
   pinMode(51, INPUT);
   pinMode(52, INPUT);
   pinMode(53, INPUT);
@@ -104,8 +97,8 @@ pinMode(50, INPUT);
   // output pins for valve PWM
   pinMode(5, OUTPUT);
   pinMode(6, OUTPUT);
-  pinMode(7, OUTPUT);
-  pinMode(8, OUTPUT);
+  pinMode(9, OUTPUT);
+  pinMode(10, OUTPUT);
 
   int eightOnes = 255;  // this is 11111111 in binary
   TCCR3A &= ~eightOnes;   // this operation (AND plus NOT), set the eight bits in TCCR registers to 0 
@@ -167,16 +160,6 @@ void loop() {
 
                       //ensure lowest pressure point is zero
                        SetNegZero();
-                      
-//// Serial Print Pressure Values
-//                        Serial.print("Pot1,");
-//                        Serial.println(p1);
-//                        Serial.print("Pot2,");
-//                        Serial.println(p2);
-//                        Serial.print("Pot3,");
-//                        Serial.println(p3);
-//                       Serial.print("Pot4,");
-//                        Serial.println(p4);
 
     //round pressure to closest integer
     int pdisplay1=p1/1;
@@ -199,7 +182,8 @@ void loop() {
     lcd.setCursor(10, 2);
     lcd.print(pdisplay4);
     lcd.display();
-
+    
+    //If PID control is initiated
     if(PID==1)
     {
       //lock the set temperature (after switch detection)
@@ -214,7 +198,7 @@ void loop() {
         PID_error3 = set_pressure3 - pdisplay3;
         PID_error4 = set_pressure4 - pdisplay4;
 
-         //Calculate the P value
+        //Calculate the P value
         PID_p1 = 0.01*kp * PID_error1;
         PID_p2 = 0.01*kp * PID_error2;
         PID_p3 = 0.01*kp * PID_error3;
@@ -224,9 +208,7 @@ void loop() {
         PID_i2 = 0.01*PID_i2 + (ki * PID_error2);
         PID_i3 = 0.01*PID_i3 + (ki * PID_error3);
         PID_i4 = 0.01*PID_i4 + (ki * PID_error4);
-
-
-        //For derivative we need real time to calculate speed change rate
+        //For D value, we need real time to calculate speed change rate
           timePrev = Time;                            // the previous time is stored before the actual time read
           Time = millis();                            // actual time read
           elapsedTime = (Time - timePrev) / 1000; 
@@ -261,12 +243,12 @@ void loop() {
           if(PID_value4 < 0)
           {    PID_value4 = 0;    }
 
-          
+          //To make adjustments in duty cycle based on PID calculations
           OCR4B=255-PID_value1;
           OCR4A=255-PID_value2;
           OCR3A=255-PID_value3;
-          OCR3B=255-PID_value4;
-          
+          OCR3B=255-PID_value4; 
+        
           previous_error1 = PID_error1;
           previous_error2 = PID_error2;
           previous_error3 = PID_error3;
@@ -277,7 +259,7 @@ void loop() {
     delay(500);
     }
 
-    //code for wireless
+    //If wireless control is initiated
         else if(bluetooth==1)
         {
            if(bluetoothSetup==0)
@@ -287,10 +269,10 @@ void loop() {
                     bluetoothSetup=1;
            }
           
-          OCR0A = (255*(pot3/100))/1;    //duty cycle adjustment (3 from left - D6)
-          OCR1A=(255*(pot2/100))/1;   //duty cycle adjustment (2  from left - D9)
-          OCR0B=(255*(pot4/100))/1;   //duty cycle adjustment (4 from left - D5)
-          OCR1B=(255*(pot1/100))/1;   //duty cycle adjustment (1  from left - D10)
+          OCR3A = (255*(pot3/100))/1;    //duty cycle adjustment (3 from left - D6)
+          OCR4A=(255*(pot2/100))/1;   //duty cycle adjustment (2  from left - D9)
+          OCR3B=(255*(pot4/100))/1;   //duty cycle adjustment (4 from left - D5)
+          OCR4B=(255*(pot1/100))/1;   //duty cycle adjustment (1  from left - D10)
 
            Blynk.run();
         }
