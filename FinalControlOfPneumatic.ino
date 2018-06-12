@@ -60,7 +60,7 @@ unsigned long debounceDelay = 50;   //the debounce time which user sets prior to
 
 //PID constants
 //////////////////////////////////////////////////////////
-int kp = 72;   int ki = 5;   int kd = 5/4;
+int kp = 72;   int ki = 5;   int kd = 8;
 //////////////////////////////////////////////////////////
 int PID_p1 = 0;    int PID_i1 = 0;    int PID_d1 = 0;
 float last_kp1 = 0;
